@@ -9,8 +9,6 @@ import { Repository } from 'typeorm';
 import { BillingEntitlementKey } from 'src/engine/core-modules/billing/enums/billing-entitlement-key.enum';
 import { BillingService } from 'src/engine/core-modules/billing/services/billing.service';
 import { EnvironmentService } from 'src/engine/core-modules/environment/environment.service';
-import { FeatureFlagKey } from 'src/engine/core-modules/feature-flag/enums/feature-flag-key.enum';
-import { FeatureFlagEntity } from 'src/engine/core-modules/feature-flag/feature-flag.entity';
 import {
   SSOException,
   SSOExceptionCode,
@@ -25,35 +23,18 @@ import {
   OIDCResponseType,
   WorkspaceSSOIdentityProvider,
 } from 'src/engine/core-modules/sso/workspace-sso-identity-provider.entity';
-import { User } from 'src/engine/core-modules/user/user.entity';
 
 @Injectable()
 export class SSOService {
   private readonly featureLookUpKey = BillingEntitlementKey.SSO;
   constructor(
-    @InjectRepository(FeatureFlagEntity, 'core')
-    private readonly featureFlagRepository: Repository<FeatureFlagEntity>,
     @InjectRepository(WorkspaceSSOIdentityProvider, 'core')
     private readonly workspaceSSOIdentityProviderRepository: Repository<WorkspaceSSOIdentityProvider>,
-    @InjectRepository(User, 'core')
-    private readonly userRepository: Repository<User>,
     private readonly environmentService: EnvironmentService,
     private readonly billingService: BillingService,
   ) {}
 
   private async isSSOEnabled(workspaceId: string) {
-    const isSSOEnabledFeatureFlag = await this.featureFlagRepository.findOneBy({
-      workspaceId,
-      key: FeatureFlagKey.IsSSOEnabled,
-      value: true,
-    });
-
-    if (!isSSOEnabledFeatureFlag?.value) {
-      throw new SSOException(
-        `${FeatureFlagKey.IsSSOEnabled} feature flag is disabled`,
-        SSOExceptionCode.SSO_DISABLE,
-      );
-    }
     const isSSOBillingEnabled =
       await this.billingService.hasWorkspaceActiveSubscriptionOrFreeAccessOrEntitlement(
         workspaceId,
@@ -62,7 +43,7 @@ export class SSOService {
 
     if (!isSSOBillingEnabled) {
       throw new SSOException(
-        `${FeatureFlagKey.IsSSOEnabled} feature is enabled but no entitlement for this workspace`,
+        `No entitlement found for this workspace`,
         SSOExceptionCode.SSO_DISABLE,
       );
     }
@@ -158,11 +139,15 @@ export class SSOService {
   }
 
   buildCallbackUrl(
-    identityProvider: Pick<WorkspaceSSOIdentityProvider, 'type'>,
+    identityProvider: Pick<WorkspaceSSOIdentityProvider, 'type' | 'id'>,
   ) {
     const callbackURL = new URL(this.environmentService.get('SERVER_URL'));
 
     callbackURL.pathname = `/auth/${identityProvider.type.toLowerCase()}/callback`;
+
+    if (identityProvider.type === IdentityProviderType.SAML) {
+      callbackURL.pathname += `/${identityProvider.id}`;
+    }
 
     return callbackURL.toString();
   }

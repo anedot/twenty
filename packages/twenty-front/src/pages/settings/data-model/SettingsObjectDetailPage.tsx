@@ -24,29 +24,15 @@ import {
   IconCodeCircle,
   IconListDetails,
   IconPlus,
+  IconPoint,
   IconSettings,
-  IconTool,
   MAIN_COLORS,
   UndecoratedLink,
   isDefined,
 } from 'twenty-ui';
+import { FeatureFlagKey } from '~/generated/graphql';
 import { SETTINGS_OBJECT_DETAIL_TABS } from '~/pages/settings/data-model/constants/SettingsObjectDetailTabs';
-import { updatedObjectSlugState } from '~/pages/settings/data-model/states/updatedObjectSlugState';
-
-const StyledTabListContainer = styled.div`
-  align-items: center;
-  border-bottom: ${({ theme }) => `1px solid ${theme.border.color.light}`};
-  box-sizing: border-box;
-  display: flex;
-  gap: ${({ theme }) => theme.spacing(2)};
-  height: ${({ theme }) => theme.spacing(10)};
-  .tab-list {
-    padding-left: 0px;
-  }
-  .tab-list > div {
-    padding: ${({ theme }) => theme.spacing(3) + ' 0'};
-  }
-`;
+import { updatedObjectNamePluralState } from '~/pages/settings/data-model/states/updatedObjectNamePluralState';
 
 const StyledContentContainer = styled.div`
   flex: 1;
@@ -67,36 +53,36 @@ const StyledTitleContainer = styled.div`
 export const SettingsObjectDetailPage = () => {
   const navigate = useNavigate();
 
-  const { objectSlug = '' } = useParams();
-  const { findActiveObjectMetadataItemBySlug } =
+  const { objectNamePlural = '' } = useParams();
+  const { findActiveObjectMetadataItemByNamePlural } =
     useFilteredObjectMetadataItems();
 
-  const [updatedObjectSlug, setUpdatedObjectSlug] = useRecoilState(
-    updatedObjectSlugState,
+  const [updatedObjectNamePlural, setUpdatedObjectNamePlural] = useRecoilState(
+    updatedObjectNamePluralState,
   );
   const objectMetadataItem =
-    findActiveObjectMetadataItemBySlug(objectSlug) ??
-    findActiveObjectMetadataItemBySlug(updatedObjectSlug);
+    findActiveObjectMetadataItemByNamePlural(objectNamePlural) ??
+    findActiveObjectMetadataItemByNamePlural(updatedObjectNamePlural);
 
-  const { activeTabIdState } = useTabList(
+  const { activeTabId } = useTabList(
     SETTINGS_OBJECT_DETAIL_TABS.COMPONENT_INSTANCE_ID,
   );
-  const activeTabId = useRecoilValue(activeTabIdState);
 
   const isAdvancedModeEnabled = useRecoilValue(isAdvancedModeEnabledState);
   const isUniqueIndexesEnabled = useIsFeatureEnabled(
-    'IS_UNIQUE_INDEXES_ENABLED',
+    FeatureFlagKey.IsUniqueIndexesEnabled,
   );
 
   useEffect(() => {
-    if (objectSlug === updatedObjectSlug) setUpdatedObjectSlug('');
+    if (objectNamePlural === updatedObjectNamePlural)
+      setUpdatedObjectNamePlural('');
     if (!isDefined(objectMetadataItem)) navigate(AppPath.NotFound);
   }, [
     objectMetadataItem,
     navigate,
-    objectSlug,
-    updatedObjectSlug,
-    setUpdatedObjectSlug,
+    objectNamePlural,
+    updatedObjectNamePlural,
+    setUpdatedObjectNamePlural,
   ]);
 
   if (!isDefined(objectMetadataItem)) return <></>;
@@ -119,7 +105,13 @@ export const SettingsObjectDetailPage = () => {
       title: 'Indexes',
       Icon: IconCodeCircle,
       hide: !isAdvancedModeEnabled || !isUniqueIndexesEnabled,
-      pill: <IconTool size={12} color={MAIN_COLORS.yellow} />,
+      pill: (
+        <IconPoint
+          size={12}
+          color={MAIN_COLORS.yellow}
+          fill={MAIN_COLORS.yellow}
+        />
+      ),
     },
   ];
 
@@ -172,15 +164,13 @@ export const SettingsObjectDetailPage = () => {
         }
       >
         <SettingsPageContainer>
-          <StyledTabListContainer>
-            <TabList
-              tabListInstanceId={
-                SETTINGS_OBJECT_DETAIL_TABS.COMPONENT_INSTANCE_ID
-              }
-              tabs={tabs}
-              className="tab-list"
-            />
-          </StyledTabListContainer>
+          <TabList
+            tabListInstanceId={
+              SETTINGS_OBJECT_DETAIL_TABS.COMPONENT_INSTANCE_ID
+            }
+            tabs={tabs}
+            className="tab-list"
+          />
           <StyledContentContainer>
             {renderActiveTabContent()}
           </StyledContentContainer>

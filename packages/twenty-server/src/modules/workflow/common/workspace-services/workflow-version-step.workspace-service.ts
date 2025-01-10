@@ -1,24 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
-import { join } from 'path';
-
 import { Repository } from 'typeorm';
 import { v4 } from 'uuid';
 
-import { INDEX_FILE_NAME } from 'src/engine/core-modules/serverless/drivers/constants/index-file-name';
+import { BASE_TYPESCRIPT_PROJECT_INPUT_SCHEMA } from 'src/engine/core-modules/serverless/drivers/constants/base-typescript-project-input-schema';
 import { WorkflowActionDTO } from 'src/engine/core-modules/workflow/dtos/workflow-step.dto';
 import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import { ServerlessFunctionService } from 'src/engine/metadata-modules/serverless-function/serverless-function.service';
 import { TwentyORMManager } from 'src/engine/twenty-orm/twenty-orm.manager';
-import { CodeIntrospectionService } from 'src/modules/code-introspection/code-introspection.service';
 import {
   WorkflowVersionStepException,
   WorkflowVersionStepExceptionCode,
 } from 'src/modules/workflow/common/exceptions/workflow-version-step.exception';
-import { WorkflowVersionWorkspaceEntity } from 'src/modules/workflow/common/standard-objects/workflow-version.workspace-entity';
+import {
+  WorkflowVersionStatus,
+  WorkflowVersionWorkspaceEntity,
+} from 'src/modules/workflow/common/standard-objects/workflow-version.workspace-entity';
+import { assertWorkflowVersionHasSteps } from 'src/modules/workflow/common/utils/assert-workflow-version-has-steps';
+import { assertWorkflowVersionIsDraft } from 'src/modules/workflow/common/utils/assert-workflow-version-is-draft.util';
+import { assertWorkflowVersionTriggerIsDefined } from 'src/modules/workflow/common/utils/assert-workflow-version-trigger-is-defined.util';
 import { WorkflowBuilderWorkspaceService } from 'src/modules/workflow/workflow-builder/workflow-builder.workspace-service';
-import { WorkflowRecordCRUDType } from 'src/modules/workflow/workflow-executor/workflow-actions/record-crud/types/workflow-record-crud-action-input.type';
 import { BaseWorkflowActionSettings } from 'src/modules/workflow/workflow-executor/workflow-actions/types/workflow-action-settings.type';
 import {
   WorkflowAction,
@@ -47,7 +49,6 @@ export class WorkflowVersionStepWorkspaceService {
     private readonly twentyORMManager: TwentyORMManager,
     private readonly workflowBuilderWorkspaceService: WorkflowBuilderWorkspaceService,
     private readonly serverlessFunctionService: ServerlessFunctionService,
-    private readonly codeIntrospectionService: CodeIntrospectionService,
     @InjectRepository(ObjectMetadataEntity, 'metadata')
     private readonly objectMetadataRepository: Repository<ObjectMetadataEntity>,
   ) {}
@@ -61,7 +62,7 @@ export class WorkflowVersionStepWorkspaceService {
   }): Promise<WorkflowAction> {
     const newStepId = v4();
 
-    switch (`${type}`) {
+    switch (type) {
       case WorkflowActionType.CODE: {
         const newServerlessFunction =
           await this.serverlessFunctionService.createOneServerlessFunction(
@@ -79,21 +80,6 @@ export class WorkflowVersionStepWorkspaceService {
           );
         }
 
-        const sourceCode = (
-          await this.serverlessFunctionService.getServerlessFunctionSourceCode(
-            workspaceId,
-            newServerlessFunction.id,
-            'draft',
-          )
-        )?.[join('src', INDEX_FILE_NAME)];
-
-        const inputSchema = isDefined(sourceCode)
-          ? this.codeIntrospectionService.getFunctionInputSchema(sourceCode)
-          : {};
-
-        const serverlessFunctionInput =
-          this.codeIntrospectionService.generateInputData(inputSchema, true);
-
         return {
           id: newStepId,
           name: 'Code - Serverless Function',
@@ -101,10 +87,19 @@ export class WorkflowVersionStepWorkspaceService {
           valid: false,
           settings: {
             ...BASE_STEP_DEFINITION,
+            outputSchema: {
+              link: {
+                isLeaf: true,
+                icon: 'IconVariable',
+                tab: 'test',
+                label: 'Generate Function Input',
+              },
+              _outputSchemaType: 'LINK',
+            },
             input: {
               serverlessFunctionId: newServerlessFunction.id,
               serverlessFunctionVersion: 'draft',
-              serverlessFunctionInput,
+              serverlessFunctionInput: BASE_TYPESCRIPT_PROJECT_INPUT_SCHEMA,
             },
           },
         };
@@ -126,7 +121,7 @@ export class WorkflowVersionStepWorkspaceService {
           },
         };
       }
-      case `${WorkflowActionType.RECORD_CRUD}.${WorkflowRecordCRUDType.CREATE}`: {
+      case WorkflowActionType.CREATE_RECORD: {
         const activeObjectMetadataItem =
           await this.objectMetadataRepository.findOne({
             where: { workspaceId, isActive: true, isSystem: false },
@@ -135,19 +130,18 @@ export class WorkflowVersionStepWorkspaceService {
         return {
           id: newStepId,
           name: 'Create Record',
-          type: WorkflowActionType.RECORD_CRUD,
+          type: WorkflowActionType.CREATE_RECORD,
           valid: false,
           settings: {
             ...BASE_STEP_DEFINITION,
             input: {
-              type: WorkflowRecordCRUDType.CREATE,
               objectName: activeObjectMetadataItem?.nameSingular || '',
               objectRecord: {},
             },
           },
         };
       }
-      case `${WorkflowActionType.RECORD_CRUD}.${WorkflowRecordCRUDType.UPDATE}`: {
+      case WorkflowActionType.UPDATE_RECORD: {
         const activeObjectMetadataItem =
           await this.objectMetadataRepository.findOne({
             where: { workspaceId, isActive: true, isSystem: false },
@@ -156,20 +150,20 @@ export class WorkflowVersionStepWorkspaceService {
         return {
           id: newStepId,
           name: 'Update Record',
-          type: WorkflowActionType.RECORD_CRUD,
+          type: WorkflowActionType.UPDATE_RECORD,
           valid: false,
           settings: {
             ...BASE_STEP_DEFINITION,
             input: {
-              type: WorkflowRecordCRUDType.UPDATE,
               objectName: activeObjectMetadataItem?.nameSingular || '',
               objectRecord: {},
               objectRecordId: '',
+              fieldsToUpdate: [],
             },
           },
         };
       }
-      case `${WorkflowActionType.RECORD_CRUD}.${WorkflowRecordCRUDType.DELETE}`: {
+      case WorkflowActionType.DELETE_RECORD: {
         const activeObjectMetadataItem =
           await this.objectMetadataRepository.findOne({
             where: { workspaceId, isActive: true, isSystem: false },
@@ -178,12 +172,11 @@ export class WorkflowVersionStepWorkspaceService {
         return {
           id: newStepId,
           name: 'Delete Record',
-          type: WorkflowActionType.RECORD_CRUD,
+          type: WorkflowActionType.DELETE_RECORD,
           valid: false,
           settings: {
             ...BASE_STEP_DEFINITION,
             input: {
-              type: WorkflowRecordCRUDType.DELETE,
               objectName: activeObjectMetadataItem?.nameSingular || '',
               objectRecordId: '',
             },
@@ -198,6 +191,48 @@ export class WorkflowVersionStepWorkspaceService {
     }
   }
 
+  private async duplicateStep({
+    step,
+    workspaceId,
+  }: {
+    step: WorkflowAction;
+    workspaceId: string;
+  }): Promise<WorkflowAction> {
+    const newStepId = v4();
+
+    switch (step.type) {
+      case WorkflowActionType.CODE: {
+        const copiedServerlessFunction =
+          await this.serverlessFunctionService.copyOneServerlessFunction({
+            serverlessFunctionToCopyId:
+              step.settings.input.serverlessFunctionId,
+            serverlessFunctionToCopyVersion:
+              step.settings.input.serverlessFunctionVersion,
+            workspaceId,
+          });
+
+        return {
+          ...step,
+          id: newStepId,
+          settings: {
+            ...step.settings,
+            input: {
+              ...step.settings.input,
+              serverlessFunctionId: copiedServerlessFunction.id,
+              serverlessFunctionVersion: copiedServerlessFunction.latestVersion,
+            },
+          },
+        };
+      }
+      default: {
+        return {
+          ...step,
+          id: newStepId,
+        };
+      }
+    }
+  }
+
   private async enrichOutputSchema({
     step,
     workspaceId,
@@ -205,6 +240,11 @@ export class WorkflowVersionStepWorkspaceService {
     step: WorkflowAction;
     workspaceId: string;
   }): Promise<WorkflowAction> {
+    // We don't enrich on the fly for code workflow action. OutputSchema is computed and updated when testing the serverless function
+    if (step.type === WorkflowActionType.CODE) {
+      return step;
+    }
+
     const result = { ...step };
     const outputSchema =
       await this.workflowBuilderWorkspaceService.computeStepOutputSchema({
@@ -266,12 +306,10 @@ export class WorkflowVersionStepWorkspaceService {
     workspaceId,
     workflowVersionId,
     step,
-    shouldUpdateStepOutput,
   }: {
     workspaceId: string;
     workflowVersionId: string;
     step: WorkflowAction;
-    shouldUpdateStepOutput: boolean;
   }): Promise<WorkflowAction> {
     const workflowVersionRepository =
       await this.twentyORMManager.getRepository<WorkflowVersionWorkspaceEntity>(
@@ -298,12 +336,10 @@ export class WorkflowVersionStepWorkspaceService {
       );
     }
 
-    const enrichedNewStep = shouldUpdateStepOutput
-      ? await this.enrichOutputSchema({
-          step,
-          workspaceId,
-        })
-      : step;
+    const enrichedNewStep = await this.enrichOutputSchema({
+      step,
+      workspaceId,
+    });
 
     const updatedSteps = workflowVersion.steps.map((existingStep) => {
       if (existingStep.id === step.id) {
@@ -375,14 +411,113 @@ export class WorkflowVersionStepWorkspaceService {
       workflowVersionUpdates,
     );
 
-    switch (stepToDelete.type) {
-      case WorkflowActionType.CODE:
-        await this.serverlessFunctionService.deleteOneServerlessFunction(
-          stepToDelete.settings.input.serverlessFunctionId,
-          workspaceId,
-        );
-    }
+    await this.runWorkflowVersionStepDeletionSideEffects({
+      step: stepToDelete,
+      workspaceId,
+    });
 
     return stepToDelete;
+  }
+
+  async createDraftFromWorkflowVersion({
+    workspaceId,
+    workflowId,
+    workflowVersionIdToCopy,
+  }: {
+    workspaceId: string;
+    workflowId: string;
+    workflowVersionIdToCopy: string;
+  }) {
+    const workflowVersionRepository =
+      await this.twentyORMManager.getRepository<WorkflowVersionWorkspaceEntity>(
+        'workflowVersion',
+      );
+
+    const workflowVersionToCopy = await workflowVersionRepository.findOne({
+      where: {
+        id: workflowVersionIdToCopy,
+        workflowId,
+      },
+    });
+
+    if (!isDefined(workflowVersionToCopy)) {
+      throw new WorkflowVersionStepException(
+        'WorkflowVersion to copy not found',
+        WorkflowVersionStepExceptionCode.NOT_FOUND,
+      );
+    }
+
+    assertWorkflowVersionTriggerIsDefined(workflowVersionToCopy);
+    assertWorkflowVersionHasSteps(workflowVersionToCopy);
+
+    let draftWorkflowVersion = await workflowVersionRepository.findOne({
+      where: {
+        workflowId,
+        status: WorkflowVersionStatus.DRAFT,
+      },
+    });
+
+    if (!isDefined(draftWorkflowVersion)) {
+      const workflowVersionsCount = await workflowVersionRepository.count({
+        where: {
+          workflowId,
+        },
+      });
+
+      draftWorkflowVersion = await workflowVersionRepository.save({
+        workflowId,
+        name: `v${workflowVersionsCount + 1}`,
+        status: WorkflowVersionStatus.DRAFT,
+      });
+    }
+
+    assertWorkflowVersionIsDraft(draftWorkflowVersion);
+
+    if (Array.isArray(draftWorkflowVersion.steps)) {
+      await Promise.all(
+        draftWorkflowVersion.steps.map((step) =>
+          this.runWorkflowVersionStepDeletionSideEffects({
+            step,
+            workspaceId,
+          }),
+        ),
+      );
+    }
+
+    const newWorkflowVersionTrigger = workflowVersionToCopy.trigger;
+    const newWorkflowVersionSteps: WorkflowAction[] = [];
+
+    for (const step of workflowVersionToCopy.steps) {
+      const duplicatedStep = await this.duplicateStep({
+        step,
+        workspaceId,
+      });
+
+      newWorkflowVersionSteps.push(duplicatedStep);
+    }
+
+    await workflowVersionRepository.update(draftWorkflowVersion.id, {
+      steps: newWorkflowVersionSteps,
+      trigger: newWorkflowVersionTrigger,
+    });
+  }
+
+  private async runWorkflowVersionStepDeletionSideEffects({
+    step,
+    workspaceId,
+  }: {
+    step: WorkflowAction;
+    workspaceId: string;
+  }) {
+    switch (step.type) {
+      case WorkflowActionType.CODE: {
+        await this.serverlessFunctionService.deleteOneServerlessFunction({
+          id: step.settings.input.serverlessFunctionId,
+          workspaceId,
+        });
+
+        break;
+      }
+    }
   }
 }

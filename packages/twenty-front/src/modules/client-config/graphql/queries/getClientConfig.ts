@@ -8,9 +8,20 @@ export const GET_CLIENT_CONFIG = gql`
         billingUrl
         billingFreeTrialDurationInDays
       }
+      authProviders {
+        google
+        password
+        microsoft
+        sso {
+          id
+          name
+          type
+          status
+          issuer
+        }
+      }
       signInPrefilled
       isMultiWorkspaceEnabled
-      isSSOEnabled
       defaultSubdomain
       frontDomain
       debugMode
@@ -32,6 +43,7 @@ export const GET_CLIENT_CONFIG = gql`
         mutationMaximumAffectedRecords
       }
       chromeExtensionId
+      canManageFeatureFlags
     }
   }
 `;

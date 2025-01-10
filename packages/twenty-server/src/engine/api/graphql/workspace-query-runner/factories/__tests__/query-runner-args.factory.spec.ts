@@ -1,11 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { FieldMetadataType } from 'twenty-shared';
+
 import { WorkspaceQueryRunnerOptions } from 'src/engine/api/graphql/workspace-query-runner/interfaces/query-runner-option.interface';
 import { ResolverArgsType } from 'src/engine/api/graphql/workspace-resolver-builder/interfaces/workspace-resolvers-builder.interface';
 
 import { QueryRunnerArgsFactory } from 'src/engine/api/graphql/workspace-query-runner/factories/query-runner-args.factory';
 import { RecordPositionFactory } from 'src/engine/api/graphql/workspace-query-runner/factories/record-position.factory';
-import { FieldMetadataType } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
 import { FieldMetadataMap } from 'src/engine/metadata-modules/types/field-metadata-map';
 
 describe('QueryRunnerArgsFactory', () => {
@@ -18,21 +19,38 @@ describe('QueryRunnerArgsFactory', () => {
     objectMetadataItemWithFieldMaps: {
       isCustom: true,
       nameSingular: 'testNumber',
+      fields: [
+        {
+          type: FieldMetadataType.POSITION,
+          isCustom: true,
+          name: 'position',
+        },
+        {
+          type: FieldMetadataType.NUMBER,
+          isCustom: true,
+          name: 'testNumber',
+        },
+        {
+          type: FieldMetadataType.TEXT,
+          isCustom: true,
+          name: 'otherField',
+        },
+      ],
       fieldsByName: {
         position: {
           type: FieldMetadataType.POSITION,
           isCustom: true,
-          nameSingular: 'position',
+          name: 'position',
         },
         testNumber: {
           type: FieldMetadataType.NUMBER,
           isCustom: true,
-          nameSingular: 'testNumber',
+          name: 'testNumber',
         },
         otherField: {
           type: FieldMetadataType.TEXT,
           isCustom: true,
-          nameSingular: 'otherField',
+          name: 'otherField',
         },
       } as unknown as FieldMetadataMap,
     },

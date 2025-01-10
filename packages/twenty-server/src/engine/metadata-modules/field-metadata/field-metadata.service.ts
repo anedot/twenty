@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 
 import { TypeOrmQueryService } from '@ptc-org/nestjs-query-typeorm';
 import isEmpty from 'lodash.isempty';
+import { FieldMetadataType } from 'twenty-shared';
 import { DataSource, FindOneOptions, Repository } from 'typeorm';
 import { v4 as uuidV4, v4 } from 'uuid';
 
@@ -32,6 +33,7 @@ import { isCompositeFieldMetadataType } from 'src/engine/metadata-modules/field-
 import { isSelectFieldMetadataType } from 'src/engine/metadata-modules/field-metadata/utils/is-select-field-metadata-type.util';
 import { ObjectMetadataEntity } from 'src/engine/metadata-modules/object-metadata/object-metadata.entity';
 import { assertMutationNotOnRemoteObject } from 'src/engine/metadata-modules/object-metadata/utils/assert-mutation-not-on-remote-object.util';
+import { validateNameAndLabelAreSyncOrThrow } from 'src/engine/metadata-modules/object-metadata/utils/validate-object-metadata-input.util';
 import {
   RelationMetadataEntity,
   RelationMetadataType,
@@ -59,10 +61,7 @@ import { ViewFieldWorkspaceEntity } from 'src/modules/view/standard-objects/view
 import { isDefined } from 'src/utils/is-defined';
 
 import { FieldMetadataValidationService } from './field-metadata-validation.service';
-import {
-  FieldMetadataEntity,
-  FieldMetadataType,
-} from './field-metadata.entity';
+import { FieldMetadataEntity } from './field-metadata.entity';
 
 import { generateDefaultValue } from './utils/generate-default-value';
 import { generateRatingOptions } from './utils/generate-rating-optionts.util';
@@ -174,6 +173,13 @@ export class FieldMetadataService extends TypeOrmQueryService<FieldMetadataEntit
         fieldMetadataForCreate,
         objectMetadata,
       );
+
+      if (fieldMetadataForCreate.isLabelSyncedWithName === true) {
+        validateNameAndLabelAreSyncOrThrow(
+          fieldMetadataForCreate.label,
+          fieldMetadataForCreate.name,
+        );
+      }
 
       console.time('createOne save');
       const createdFieldMetadata = await fieldMetadataRepository.save(
@@ -406,6 +412,17 @@ export class FieldMetadataService extends TypeOrmQueryService<FieldMetadataEntit
         fieldMetadataForUpdate,
         objectMetadata,
       );
+
+      const isLabelSyncedWithName =
+        fieldMetadataForUpdate.isLabelSyncedWithName ??
+        existingFieldMetadata.isLabelSyncedWithName;
+
+      if (isLabelSyncedWithName) {
+        validateNameAndLabelAreSyncOrThrow(
+          fieldMetadataForUpdate.label ?? existingFieldMetadata.label,
+          fieldMetadataForUpdate.name ?? existingFieldMetadata.name,
+        );
+      }
 
       // We're running field update under a transaction, so we can rollback if migration fails
       await fieldMetadataRepository.update(id, fieldMetadataForUpdate);
@@ -733,7 +750,7 @@ export class FieldMetadataService extends TypeOrmQueryService<FieldMetadataEntit
           );
         } else if (error instanceof NameNotAvailableException) {
           throw new FieldMetadataException(
-            `Name "${fieldMetadataInput.name}" is not available`,
+            `Name "${fieldMetadataInput.name}" is not available, check that it is not duplicating another field's name.`,
             FieldMetadataExceptionCode.INVALID_FIELD_INPUT,
           );
         } else {

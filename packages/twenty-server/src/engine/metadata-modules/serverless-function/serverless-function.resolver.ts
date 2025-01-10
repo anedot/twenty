@@ -35,17 +35,16 @@ export class ServerlessFunctionResolver {
   ) {}
 
   async checkFeatureFlag(workspaceId: string) {
-    const isFunctionSettingsEnabled =
-      await this.featureFlagRepository.findOneBy({
-        workspaceId,
-        key: FeatureFlagKey.IsFunctionSettingsEnabled,
-        value: true,
-      });
+    const isWorkflowEnabled = await this.featureFlagRepository.findOneBy({
+      workspaceId,
+      key: FeatureFlagKey.IsWorkflowEnabled,
+      value: true,
+    });
 
-    if (!isFunctionSettingsEnabled) {
+    if (!isWorkflowEnabled) {
       throw new ServerlessFunctionException(
-        `IS_FUNCTION_SETTINGS_ENABLED feature flag is not set to true for this workspace`,
-        ServerlessFunctionExceptionCode.SERVERLESS_FUNCTION_NOT_FOUND,
+        `IS_WORKFLOW_ENABLED feature flag is not set to true for this workspace`,
+        ServerlessFunctionExceptionCode.FEATURE_FLAG_INVALID,
       );
     }
   }
@@ -123,10 +122,10 @@ export class ServerlessFunctionResolver {
     try {
       await this.checkFeatureFlag(workspaceId);
 
-      return await this.serverlessFunctionService.deleteOneServerlessFunction(
-        input.id,
+      return await this.serverlessFunctionService.deleteOneServerlessFunction({
+        id: input.id,
         workspaceId,
-      );
+      });
     } catch (error) {
       serverlessFunctionGraphQLApiExceptionHandler(error);
     }

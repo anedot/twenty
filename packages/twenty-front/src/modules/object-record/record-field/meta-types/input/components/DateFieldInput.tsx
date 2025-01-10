@@ -4,8 +4,8 @@ import { useDateField } from '@/object-record/record-field/meta-types/hooks/useD
 import { DateInput } from '@/ui/field/input/components/DateInput';
 import { isDefined } from '~/utils/isDefined';
 
-import { usePersistField } from '../../../hooks/usePersistField';
 import { FieldInputClickOutsideEvent } from '@/object-record/record-field/meta-types/input/components/DateTimeFieldInput';
+import { usePersistField } from '../../../hooks/usePersistField';
 
 type FieldInputEvent = (persist: () => void) => void;
 
@@ -24,7 +24,7 @@ export const DateFieldInput = ({
   onClear,
   onSubmit,
 }: DateFieldInputProps) => {
-  const { fieldValue, setDraftValue } = useDateField();
+  const { fieldValue, setDraftValue, hotkeyScope } = useDateField();
 
   const persistField = usePersistField();
 
@@ -77,6 +77,7 @@ export const DateFieldInput = ({
       onChange={handleChange}
       onClear={handleClear}
       onSubmit={handleSubmit}
+      hotkeyScope={hotkeyScope}
     />
   );
 };

@@ -8,7 +8,6 @@ import { View } from '@/views/types/View';
 import { useDeleteViewFromCurrentState } from '@/views/view-picker/hooks/useDeleteViewFromCurrentState';
 import { useViewPickerMode } from '@/views/view-picker/hooks/useViewPickerMode';
 import { viewPickerReferenceViewIdComponentState } from '@/views/view-picker/states/viewPickerReferenceViewIdComponentState';
-import { useIsFeatureEnabled } from '@/workspace/hooks/useIsFeatureEnabled';
 import { useState } from 'react';
 import {
   IconHeart,
@@ -41,10 +40,6 @@ export const ViewPickerOptionDropdown = ({
   );
   const { setViewPickerMode } = useViewPickerMode();
 
-  const isFavoriteFolderEnabled = useIsFeatureEnabled(
-    'IS_FAVORITE_FOLDER_ENABLED',
-  );
-
   const { sortedFavorites: favorites } = useFavorites();
   const { createFavorite } = useCreateFavorite();
 
@@ -61,9 +56,10 @@ export const ViewPickerOptionDropdown = ({
   const handleAddToFavorites = () => {
     if (!isFavorite) {
       createFavorite(view, 'view');
+    } else {
+      setViewPickerReferenceViewId(view.id);
+      setViewPickerMode('favorite-folders-picker');
     }
-    setViewPickerReferenceViewId(view.id);
-    setViewPickerMode('favorite-folders-picker');
     closeDropdown();
   };
 
@@ -85,22 +81,19 @@ export const ViewPickerOptionDropdown = ({
         dropdownContent={
           <DropdownMenuItemsContainer>
             {isIndexView ? (
-              isFavoriteFolderEnabled && (
+              <MenuItem
+                LeftIcon={IconHeart}
+                text={isFavorite ? 'Manage favorite' : 'Add to Favorite'}
+                onClick={handleAddToFavorites}
+              />
+            ) : (
+              <>
                 <MenuItem
                   LeftIcon={IconHeart}
                   text={isFavorite ? 'Manage favorite' : 'Add to Favorite'}
                   onClick={handleAddToFavorites}
                 />
-              )
-            ) : (
-              <>
-                {isFavoriteFolderEnabled && (
-                  <MenuItem
-                    LeftIcon={IconHeart}
-                    text={isFavorite ? 'Manage favorite' : 'Add to Favorite'}
-                    onClick={handleAddToFavorites}
-                  />
-                )}
+
                 <MenuItem
                   LeftIcon={IconPencil}
                   text="Edit"

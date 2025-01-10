@@ -1,3 +1,4 @@
+import { WORKSPACE_MEMBER_QUERY_FRAGMENT } from '@/workspace-member/graphql/fragments/workspaceMemberQueryFragment';
 import { gql } from '@apollo/client';
 
 export const USER_QUERY_FRAGMENT = gql`
@@ -23,7 +24,7 @@ export const USER_QUERY_FRAGMENT = gql`
     workspaceMembers {
       ...WorkspaceMemberQueryFragment
     }
-    defaultWorkspace {
+    currentWorkspace {
       id
       displayName
       logo
@@ -62,4 +63,6 @@ export const USER_QUERY_FRAGMENT = gql`
     }
     userVars
   }
+
+  ${WORKSPACE_MEMBER_QUERY_FRAGMENT}
 `;

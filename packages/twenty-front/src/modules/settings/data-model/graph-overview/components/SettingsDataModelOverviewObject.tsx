@@ -1,23 +1,24 @@
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/styled';
+import { Node, NodeProps } from '@xyflow/react';
 import { Link } from 'react-router-dom';
-import { NodeProps } from 'reactflow';
 import { IconChevronDown, IconChevronUp, useIcons } from 'twenty-ui';
 
 import { ObjectMetadataItem } from '@/object-metadata/types/ObjectMetadataItem';
-import { getObjectSlug } from '@/object-metadata/utils/getObjectSlug';
 import { useFindManyRecords } from '@/object-record/hooks/useFindManyRecords';
 import { ObjectFieldRow } from '@/settings/data-model/graph-overview/components/SettingsDataModelOverviewField';
 import { SettingsDataModelObjectTypeTag } from '@/settings/data-model/objects/components/SettingsDataModelObjectTypeTag';
 import { getObjectTypeLabel } from '@/settings/data-model/utils/getObjectTypeLabel';
+import { capitalize } from 'twenty-shared';
 import { FieldMetadataType } from '~/generated/graphql';
-import { capitalize } from '~/utils/string/capitalize';
 
 import { ObjectFieldRowWithoutRelation } from '@/settings/data-model/graph-overview/components/SettingsDataModelOverviewFieldWithoutRelation';
-import '@reactflow/node-resizer/dist/style.css';
+import '@xyflow/react/dist/style.css';
 import { useState } from 'react';
 
-type SettingsDataModelOverviewObjectProps = NodeProps<ObjectMetadataItem>;
+type SettingsDataModelOverviewObjectNode = Node<ObjectMetadataItem, 'object'>;
+type SettingsDataModelOverviewObjectProps =
+  NodeProps<SettingsDataModelOverviewObjectNode>;
 
 const StyledNode = styled.div`
   background-color: ${({ theme }) => theme.background.secondary};
@@ -98,36 +99,38 @@ const StyledObjectLink = styled(Link)`
 `;
 
 export const SettingsDataModelOverviewObject = ({
-  data,
+  data: objectMetadataItem,
 }: SettingsDataModelOverviewObjectProps) => {
   const theme = useTheme();
   const { getIcon } = useIcons();
   const [otherFieldsExpanded, setOtherFieldsExpanded] = useState(false);
 
   const { totalCount } = useFindManyRecords({
-    objectNameSingular: data.nameSingular,
+    objectNameSingular: objectMetadataItem.nameSingular,
   });
 
-  const fields = data.fields.filter((x) => !x.isSystem);
+  const fields = objectMetadataItem.fields.filter((x) => !x.isSystem);
 
   const countNonRelation = fields.filter(
     (x) => x.type !== FieldMetadataType.Relation,
   ).length;
 
-  const Icon = getIcon(data.icon);
+  const Icon = getIcon(objectMetadataItem.icon);
 
   return (
     <StyledNode>
       <StyledHeader>
         <StyledObjectName onMouseEnter={() => {}} onMouseLeave={() => {}}>
-          <StyledObjectLink to={`/settings/objects/${getObjectSlug(data)}`}>
+          <StyledObjectLink
+            to={`/settings/objects/${objectMetadataItem.namePlural}`}
+          >
             {Icon && <Icon size={theme.icon.size.md} />}
-            {capitalize(data.namePlural)}
+            {capitalize(objectMetadataItem.namePlural)}
           </StyledObjectLink>
           <StyledObjectInstanceCount> · {totalCount}</StyledObjectInstanceCount>
         </StyledObjectName>
         <SettingsDataModelObjectTypeTag
-          objectTypeLabel={getObjectTypeLabel(data)}
+          objectTypeLabel={getObjectTypeLabel(objectMetadataItem)}
         ></SettingsDataModelObjectTypeTag>
       </StyledHeader>
 
@@ -135,7 +138,7 @@ export const SettingsDataModelOverviewObject = ({
         {fields
           .filter((x) => x.type === FieldMetadataType.Relation)
           .map((field) => (
-            <StyledCardRow>
+            <StyledCardRow key={field.id}>
               <ObjectFieldRow field={field} />
             </StyledCardRow>
           ))}

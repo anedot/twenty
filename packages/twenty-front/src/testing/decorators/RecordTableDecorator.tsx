@@ -2,7 +2,9 @@ import { Decorator } from '@storybook/react';
 import { useRecoilValue } from 'recoil';
 
 import { objectMetadataItemsState } from '@/object-metadata/states/objectMetadataItemsState';
-import { RecordTableContext } from '@/object-record/record-table/contexts/RecordTableContext';
+import { RecordIndexContextProvider } from '@/object-record/record-index/contexts/RecordIndexContext';
+import { RecordTableBodyContextProvider } from '@/object-record/record-table/contexts/RecordTableBodyContext';
+import { RecordTableContextProvider } from '@/object-record/record-table/contexts/RecordTableContext';
 import { isDefined } from 'twenty-ui';
 
 export const RecordTableDecorator: Decorator = (Story) => {
@@ -17,23 +19,39 @@ export const RecordTableDecorator: Decorator = (Story) => {
   }
 
   return (
-    <RecordTableContext.Provider
+    <RecordIndexContextProvider
       value={{
-        objectNameSingular: personObjectMetadataItem?.nameSingular,
+        indexIdentifierUrl: () => '',
+        onIndexRecordsLoaded: () => {},
+        objectNamePlural: personObjectMetadataItem.namePlural,
+        objectNameSingular: personObjectMetadataItem.nameSingular,
         objectMetadataItem: personObjectMetadataItem,
-        onCellMouseEnter: () => {},
-        onCloseTableCell: () => {},
-        onOpenTableCell: () => {},
-        onActionMenuDropdownOpened: () => {},
-        onMoveFocus: () => {},
-        onMoveSoftFocusToCell: () => {},
-        onUpsertRecord: () => {},
-        recordTableId: 'persons',
-        viewBarId: 'view-bar',
-        visibleTableColumns: [],
+        recordIndexId: 'record-index',
       }}
     >
-      <Story />
-    </RecordTableContext.Provider>
+      <RecordTableContextProvider
+        value={{
+          objectNameSingular: personObjectMetadataItem.nameSingular,
+          objectMetadataItem: personObjectMetadataItem,
+          recordTableId: 'persons',
+          viewBarId: 'view-bar',
+          visibleTableColumns: [],
+        }}
+      >
+        <RecordTableBodyContextProvider
+          value={{
+            onCellMouseEnter: () => {},
+            onCloseTableCell: () => {},
+            onOpenTableCell: () => {},
+            onActionMenuDropdownOpened: () => {},
+            onMoveFocus: () => {},
+            onMoveSoftFocusToCell: () => {},
+            onUpsertRecord: () => {},
+          }}
+        >
+          <Story />
+        </RecordTableBodyContextProvider>
+      </RecordTableContextProvider>
+    </RecordIndexContextProvider>
   );
 };

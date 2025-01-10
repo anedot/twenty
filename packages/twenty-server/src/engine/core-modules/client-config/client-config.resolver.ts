@@ -1,12 +1,16 @@
 import { Query, Resolver } from '@nestjs/graphql';
 
+import { DomainManagerService } from 'src/engine/core-modules/domain-manager/service/domain-manager.service';
 import { EnvironmentService } from 'src/engine/core-modules/environment/environment.service';
 
 import { ClientConfig } from './client-config.entity';
 
 @Resolver()
 export class ClientConfigResolver {
-  constructor(private environmentService: EnvironmentService) {}
+  constructor(
+    private environmentService: EnvironmentService,
+    private domainManagerService: DomainManagerService,
+  ) {}
 
   @Query(() => ClientConfig)
   async clientConfig(): Promise<ClientConfig> {
@@ -18,13 +22,19 @@ export class ClientConfigResolver {
           'BILLING_FREE_TRIAL_DURATION_IN_DAYS',
         ),
       },
-      isSSOEnabled: this.environmentService.get('AUTH_SSO_ENABLED'),
+      authProviders: {
+        google: this.environmentService.get('AUTH_GOOGLE_ENABLED'),
+        magicLink: false,
+        password: this.environmentService.get('AUTH_PASSWORD_ENABLED'),
+        microsoft: this.environmentService.get('AUTH_MICROSOFT_ENABLED'),
+        sso: [],
+      },
       signInPrefilled: this.environmentService.get('SIGN_IN_PREFILLED'),
       isMultiWorkspaceEnabled: this.environmentService.get(
         'IS_MULTIWORKSPACE_ENABLED',
       ),
       defaultSubdomain: this.environmentService.get('DEFAULT_SUBDOMAIN'),
-      frontDomain: this.environmentService.get('FRONT_DOMAIN'),
+      frontDomain: this.domainManagerService.getFrontUrl().hostname,
       debugMode: this.environmentService.get('DEBUG_MODE'),
       support: {
         supportDriver: this.environmentService.get('SUPPORT_DRIVER'),
@@ -48,6 +58,9 @@ export class ClientConfigResolver {
         ),
       },
       analyticsEnabled: this.environmentService.get('ANALYTICS_ENABLED'),
+      canManageFeatureFlags:
+        this.environmentService.get('DEBUG_MODE') ||
+        this.environmentService.get('IS_BILLING_ENABLED'),
     };
 
     return Promise.resolve(clientConfig);

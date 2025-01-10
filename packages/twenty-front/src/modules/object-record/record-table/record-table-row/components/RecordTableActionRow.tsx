@@ -1,21 +1,22 @@
 import styled from '@emotion/styled';
 
+import { useRecordTableContextOrThrow } from '@/object-record/record-table/contexts/RecordTableContext';
 import { RecordTableTd } from '@/object-record/record-table/record-table-cell/components/RecordTableTd';
-import { visibleTableColumnsComponentSelector } from '@/object-record/record-table/states/selectors/visibleTableColumnsComponentSelector';
-import { useRecoilComponentValueV2 } from '@/ui/utilities/state/component-state/hooks/useRecoilComponentValueV2';
+import { RecordTableDraggableTr } from '@/object-record/record-table/record-table-row/components/RecordTableDraggableTr';
 import { useTheme } from '@emotion/react';
 import { IconComponent } from 'twenty-ui';
 
-const StyledTrContainer = styled.tr`
+const StyledRecordTableDraggableTr = styled(RecordTableDraggableTr)`
   cursor: pointer;
 `;
 
 const StyledIconContainer = styled(RecordTableTd)`
   border-right: none;
   color: ${({ theme }) => theme.font.color.secondary};
-  text-align: center;
-  vertical-align: middle;
-  padding-top: 3px;
+  display: flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
 `;
 
 const StyledRecordTableTdTextContainer = styled(RecordTableTd)`
@@ -36,33 +37,41 @@ const StyledEmptyTd = styled.td`
 `;
 
 type RecordTableActionRowProps = {
+  draggableId: string;
+  draggableIndex: number;
   LeftIcon: IconComponent;
   text: string;
   onClick?: (event?: React.MouseEvent<HTMLTableRowElement>) => void;
 };
 
 export const RecordTableActionRow = ({
+  draggableId,
+  draggableIndex,
   LeftIcon,
   text,
   onClick,
 }: RecordTableActionRowProps) => {
   const theme = useTheme();
 
-  const visibleColumns = useRecoilComponentValueV2(
-    visibleTableColumnsComponentSelector,
-  );
+  const { visibleTableColumns } = useRecordTableContextOrThrow();
 
   return (
-    <StyledTrContainer onClick={onClick}>
+    <StyledRecordTableDraggableTr
+      draggableId={draggableId}
+      draggableIndex={draggableIndex}
+      onClick={onClick}
+      isDragDisabled
+    >
       <td aria-hidden />
       <StyledIconContainer>
         <LeftIcon size={theme.icon.size.sm} color={theme.font.color.tertiary} />
       </StyledIconContainer>
-      <StyledRecordTableTdTextContainer colSpan={visibleColumns.length}>
+      <StyledRecordTableTdTextContainer>
         <StyledText>{text}</StyledText>
       </StyledRecordTableTdTextContainer>
+      <StyledEmptyTd colSpan={visibleTableColumns.length - 1} />
       <StyledEmptyTd />
       <StyledEmptyTd />
-    </StyledTrContainer>
+    </StyledRecordTableDraggableTr>
   );
 };

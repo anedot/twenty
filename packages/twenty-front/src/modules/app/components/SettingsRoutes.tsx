@@ -83,11 +83,11 @@ const SettingsServerlessFunctions = lazy(() =>
   ).then((module) => ({ default: module.SettingsServerlessFunctions })),
 );
 
-const SettingsServerlessFunctionDetailWrapper = lazy(() =>
+const SettingsServerlessFunctionDetail = lazy(() =>
   import(
-    '~/pages/settings/serverless-functions/SettingsServerlessFunctionDetailWrapper'
+    '~/pages/settings/serverless-functions/SettingsServerlessFunctionDetail'
   ).then((module) => ({
-    default: module.SettingsServerlessFunctionDetailWrapper,
+    default: module.SettingsServerlessFunctionDetail,
   })),
 );
 
@@ -254,10 +254,10 @@ const SettingsAdmin = lazy(() =>
   })),
 );
 
-const SettingsAdminFeatureFlags = lazy(() =>
-  import('~/pages/settings/admin-panel/SettingsAdminFeatureFlags').then(
+const SettingsAdminContent = lazy(() =>
+  import('@/settings/admin-panel/components/SettingsAdminContent').then(
     (module) => ({
-      default: module.SettingsAdminFeatureFlags,
+      default: module.SettingsAdminContent,
     }),
   ),
 );
@@ -266,7 +266,6 @@ type SettingsRoutesProps = {
   isBillingEnabled?: boolean;
   isCRMMigrationEnabled?: boolean;
   isServerlessFunctionSettingsEnabled?: boolean;
-  isSSOEnabled?: boolean;
   isAdminPageEnabled?: boolean;
 };
 
@@ -274,7 +273,6 @@ export const SettingsRoutes = ({
   isBillingEnabled,
   isCRMMigrationEnabled,
   isServerlessFunctionSettingsEnabled,
-  isSSOEnabled,
   isAdminPageEnabled,
 }: SettingsRoutesProps) => (
   <Suspense fallback={<SettingsSkeletonLoader />}>
@@ -353,7 +351,7 @@ export const SettingsRoutes = ({
           />
           <Route
             path={SettingsPath.ServerlessFunctionDetail}
-            element={<SettingsServerlessFunctionDetailWrapper />}
+            element={<SettingsServerlessFunctionDetail />}
           />
         </>
       )}
@@ -391,18 +389,16 @@ export const SettingsRoutes = ({
       />
       <Route path={SettingsPath.Releases} element={<Releases />} />
       <Route path={SettingsPath.Security} element={<SettingsSecurity />} />
-      {isSSOEnabled && (
-        <Route
-          path={SettingsPath.NewSSOIdentityProvider}
-          element={<SettingsSecuritySSOIdentifyProvider />}
-        />
-      )}
+      <Route
+        path={SettingsPath.NewSSOIdentityProvider}
+        element={<SettingsSecuritySSOIdentifyProvider />}
+      />
       {isAdminPageEnabled && (
         <>
           <Route path={SettingsPath.AdminPanel} element={<SettingsAdmin />} />
           <Route
             path={SettingsPath.FeatureFlags}
-            element={<SettingsAdminFeatureFlags />}
+            element={<SettingsAdminContent />}
           />
         </>
       )}

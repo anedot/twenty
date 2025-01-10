@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+import { FieldMetadataType } from 'twenty-shared';
+
 import {
   ObjectRecord,
   ObjectRecordFilter,
@@ -16,8 +18,6 @@ import {
 } from 'src/engine/api/graphql/workspace-resolver-builder/interfaces/workspace-resolvers-builder.interface';
 import { FieldMetadataInterface } from 'src/engine/metadata-modules/field-metadata/interfaces/field-metadata.interface';
 
-import { FieldMetadataType } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
-import { hasPositionField } from 'src/engine/metadata-modules/object-metadata/utils/has-position-field.util';
 import { FieldMetadataMap } from 'src/engine/metadata-modules/types/field-metadata-map';
 
 import { RecordPositionFactory } from './record-position.factory';
@@ -39,9 +39,12 @@ export class QueryRunnerArgsFactory {
     const fieldMetadataMapByNameByName =
       options.objectMetadataItemWithFieldMaps.fieldsByName;
 
-    const shouldBackfillPosition = hasPositionField(
-      options.objectMetadataItemWithFieldMaps,
-    );
+    const shouldBackfillPosition =
+      options.objectMetadataItemWithFieldMaps.fields.some(
+        (field) =>
+          field.type === FieldMetadataType.POSITION &&
+          field.name === 'position',
+      );
 
     switch (resolverArgsType) {
       case ResolverArgsType.CreateOne:

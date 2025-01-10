@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import graphqlFields from 'graphql-fields';
+import { capitalize } from 'twenty-shared';
 import { DataSource, ObjectLiteral } from 'typeorm';
 
 import { ObjectRecord } from 'src/engine/api/graphql/workspace-query-builder/interfaces/object-record.interface';
@@ -18,10 +19,10 @@ import { GraphqlQueryParser } from 'src/engine/api/graphql/graphql-query-runner/
 import { ApiEventEmitterService } from 'src/engine/api/graphql/graphql-query-runner/services/api-event-emitter.service';
 import { QueryResultGettersFactory } from 'src/engine/api/graphql/workspace-query-runner/factories/query-result-getters/query-result-getters.factory';
 import { QueryRunnerArgsFactory } from 'src/engine/api/graphql/workspace-query-runner/factories/query-runner-args.factory';
+import { workspaceQueryRunnerGraphqlApiExceptionHandler } from 'src/engine/api/graphql/workspace-query-runner/utils/workspace-query-runner-graphql-api-exception-handler.util';
 import { WorkspaceQueryHookService } from 'src/engine/api/graphql/workspace-query-runner/workspace-query-hook/workspace-query-hook.service';
 import { WorkspaceRepository } from 'src/engine/twenty-orm/repository/workspace.repository';
 import { TwentyORMGlobalManager } from 'src/engine/twenty-orm/twenty-orm-global.manager';
-import { capitalize } from 'src/utils/capitalize';
 
 export type GraphqlQueryResolverExecutionArgs<Input extends ResolverArgs> = {
   args: Input;
@@ -56,77 +57,81 @@ export abstract class GraphqlQueryBaseResolverService<
     args: Input,
     options: WorkspaceQueryRunnerOptions,
     operationName: WorkspaceResolverBuilderMethodNames,
-  ): Promise<Response> {
-    const { authContext, objectMetadataItemWithFieldMaps } = options;
+  ): Promise<Response | undefined> {
+    try {
+      const { authContext, objectMetadataItemWithFieldMaps } = options;
 
-    await this.validate(args, options);
+      await this.validate(args, options);
 
-    const hookedArgs =
-      await this.workspaceQueryHookService.executePreQueryHooks(
+      const hookedArgs =
+        await this.workspaceQueryHookService.executePreQueryHooks(
+          authContext,
+          objectMetadataItemWithFieldMaps.nameSingular,
+          operationName,
+          args,
+        );
+
+      const computedArgs = (await this.queryRunnerArgsFactory.create(
+        hookedArgs,
+        options,
+        ResolverArgsType[capitalize(operationName)],
+      )) as Input;
+
+      const dataSource =
+        await this.twentyORMGlobalManager.getDataSourceForWorkspace(
+          authContext.workspace.id,
+        );
+
+      const repository = dataSource.getRepository(
+        objectMetadataItemWithFieldMaps.nameSingular,
+      );
+
+      const graphqlQueryParser = new GraphqlQueryParser(
+        objectMetadataItemWithFieldMaps.fieldsByName,
+        options.objectMetadataMaps,
+      );
+
+      const selectedFields = graphqlFields(options.info);
+
+      const graphqlQuerySelectedFieldsResult =
+        graphqlQueryParser.parseSelectedFields(
+          objectMetadataItemWithFieldMaps,
+          selectedFields,
+        );
+
+      const graphqlQueryResolverExecutionArgs = {
+        args: computedArgs,
+        options,
+        dataSource,
+        repository,
+        graphqlQueryParser,
+        graphqlQuerySelectedFieldsResult,
+      };
+
+      const results = await this.resolve(graphqlQueryResolverExecutionArgs);
+
+      const resultWithGetters = await this.queryResultGettersFactory.create(
+        results,
+        objectMetadataItemWithFieldMaps,
+        authContext.workspace.id,
+        options.objectMetadataMaps,
+      );
+
+      const resultWithGettersArray = Array.isArray(resultWithGetters)
+        ? resultWithGetters
+        : [resultWithGetters];
+
+      await this.workspaceQueryHookService.executePostQueryHooks(
         authContext,
         objectMetadataItemWithFieldMaps.nameSingular,
         operationName,
-        args,
+        resultWithGettersArray,
       );
 
-    const computedArgs = (await this.queryRunnerArgsFactory.create(
-      hookedArgs,
-      options,
-      ResolverArgsType[capitalize(operationName)],
-    )) as Input;
-
-    const dataSource =
-      await this.twentyORMGlobalManager.getDataSourceForWorkspace(
-        authContext.workspace.id,
-      );
-
-    const repository = dataSource.getRepository(
-      objectMetadataItemWithFieldMaps.nameSingular,
-    );
-
-    const graphqlQueryParser = new GraphqlQueryParser(
-      objectMetadataItemWithFieldMaps.fieldsByName,
-      options.objectMetadataMaps,
-    );
-
-    const selectedFields = graphqlFields(options.info);
-
-    const graphqlQuerySelectedFieldsResult =
-      graphqlQueryParser.parseSelectedFields(
-        objectMetadataItemWithFieldMaps,
-        selectedFields,
-      );
-
-    const graphqlQueryResolverExecutionArgs = {
-      args: computedArgs,
-      options,
-      dataSource,
-      repository,
-      graphqlQueryParser,
-      graphqlQuerySelectedFieldsResult,
-    };
-
-    const results = await this.resolve(graphqlQueryResolverExecutionArgs);
-
-    const resultWithGetters = await this.queryResultGettersFactory.create(
-      results,
-      objectMetadataItemWithFieldMaps,
-      authContext.workspace.id,
-      options.objectMetadataMaps,
-    );
-
-    const resultWithGettersArray = Array.isArray(resultWithGetters)
-      ? resultWithGetters
-      : [resultWithGetters];
-
-    await this.workspaceQueryHookService.executePostQueryHooks(
-      authContext,
-      objectMetadataItemWithFieldMaps.nameSingular,
-      operationName,
-      resultWithGettersArray,
-    );
-
-    return resultWithGetters;
+      return resultWithGetters;
+    } catch (error) {
+      workspaceQueryRunnerGraphqlApiExceptionHandler(error, options);
+    }
   }
 
   protected abstract resolve(

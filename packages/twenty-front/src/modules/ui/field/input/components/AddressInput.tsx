@@ -15,21 +15,11 @@ import { useRecoilValue } from 'recoil';
 import { isDefined, MOBILE_VIEWPORT } from 'twenty-ui';
 
 const StyledAddressContainer = styled.div`
-  background: ${({ theme }) => theme.background.secondary};
-  border: 1px solid ${({ theme }) => theme.border.color.light};
-  border-radius: ${({ theme }) => theme.border.radius.md};
-  box-shadow: ${({ theme }) => theme.boxShadow.strong};
-
   padding: 4px 8px;
 
   width: 344px;
   > div {
     margin-bottom: 6px;
-  }
-
-  input {
-    background-color: ${({ theme }) => theme.background.transparent.secondary};
-    backdrop-filter: ${({ theme }) => theme.blur.medium};
   }
 
   @media (max-width: ${MOBILE_VIEWPORT}px) {
@@ -260,6 +250,7 @@ export const AddressInput = ({
           onFocus={getFocusHandler('addressPostcode')}
         />
         <CountrySelect
+          label="COUNTRY"
           onChange={getChangeHandler('addressCountry')}
           selectedCountryName={internalValue.addressCountry ?? ''}
         />

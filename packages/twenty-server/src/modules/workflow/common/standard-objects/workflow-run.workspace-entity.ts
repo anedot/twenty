@@ -1,3 +1,5 @@
+import { FieldMetadataType } from 'twenty-shared';
+
 import { Relation } from 'src/engine/workspace-manager/workspace-sync-metadata/interfaces/relation.interface';
 
 import { FeatureFlagKey } from 'src/engine/core-modules/feature-flag/enums/feature-flag-key.enum';
@@ -5,7 +7,6 @@ import {
   ActorMetadata,
   FieldActorSource,
 } from 'src/engine/metadata-modules/field-metadata/composite-types/actor.composite-type';
-import { FieldMetadataType } from 'src/engine/metadata-modules/field-metadata/field-metadata.entity';
 import {
   RelationMetadataType,
   RelationOnDeleteAction,
@@ -46,6 +47,7 @@ type StepRunOutput = {
 
 export type WorkflowRunOutput = {
   steps: Record<string, StepRunOutput>;
+  error?: string;
 };
 
 @WorkspaceEntity({
@@ -155,10 +157,10 @@ export class WorkflowRunWorkspaceEntity extends BaseWorkspaceEntity {
     label: 'Position',
     description: 'Workflow run position',
     icon: 'IconHierarchy2',
+    defaultValue: 0,
   })
   @WorkspaceIsSystem()
-  @WorkspaceIsNullable()
-  position: number | null;
+  position: number;
 
   // Relations
   @WorkspaceRelation({

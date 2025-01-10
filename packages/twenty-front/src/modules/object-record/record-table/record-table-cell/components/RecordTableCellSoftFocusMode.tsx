@@ -19,7 +19,9 @@ import { isDefined } from '~/utils/isDefined';
 
 import { TableHotkeyScope } from '../../types/TableHotkeyScope';
 
+import { FieldContext } from '@/object-record/record-field/contexts/FieldContext';
 import { useIsFieldValueReadOnly } from '@/object-record/record-field/hooks/useIsFieldValueReadOnly';
+import { useRecordTableBodyContextOrThrow } from '@/object-record/record-table/contexts/RecordTableBodyContext';
 import { RecordTableCellDisplayContainer } from './RecordTableCellDisplayContainer';
 
 type RecordTableCellSoftFocusModeProps = {
@@ -31,7 +33,10 @@ export const RecordTableCellSoftFocusMode = ({
   editModeContent,
   nonEditModeContent,
 }: RecordTableCellSoftFocusModeProps) => {
-  const { columnIndex } = useContext(RecordTableCellContext);
+  const { columnIndex, columnDefinition } = useContext(RecordTableCellContext);
+  const { recordId } = useContext(FieldContext);
+
+  const { onActionMenuDropdownOpened } = useRecordTableBodyContextOrThrow();
 
   const isFieldReadOnly = useIsFieldValueReadOnly();
 
@@ -123,13 +128,21 @@ export const RecordTableCellSoftFocusMode = ({
   };
 
   const handleButtonClick = () => {
-    handleClick();
+    if (!isFieldInputOnly && isFirstColumn) {
+      openTableCell(undefined, false, true);
+    } else {
+      openTableCell();
+    }
     /*
     Disabling sidepanel access for now, TODO: launch
     if (!isFieldInputOnly) {
       openTableCell(undefined, true);
     }
     */
+  };
+
+  const handleActionMenuDropdown = (event: React.MouseEvent) => {
+    onActionMenuDropdownOpened(event, recordId);
   };
 
   const isFirstColumn = columnIndex === 0;
@@ -139,12 +152,12 @@ export const RecordTableCellSoftFocusMode = ({
     : customButtonIcon;
 
   const showButton =
-    isDefined(buttonIcon) &&
-    !editModeContentOnly &&
-    (!isFirstColumn || !isEmpty) &&
-    !isFieldReadOnly;
+    isDefined(buttonIcon) && !editModeContentOnly && !isFieldReadOnly;
 
   const dontShowContent = isEmpty && isFieldReadOnly;
+
+  const showPlaceholder =
+    !editModeContentOnly && !isFieldReadOnly && isFirstColumn && isEmpty;
 
   return (
     <>
@@ -152,6 +165,10 @@ export const RecordTableCellSoftFocusMode = ({
         onClick={handleClick}
         scrollRef={scrollRef}
         softFocus
+        onContextMenu={handleActionMenuDropdown}
+        placeholderForEmptyCell={
+          showPlaceholder ? columnDefinition.label : undefined
+        }
       >
         {dontShowContent ? (
           <></>
